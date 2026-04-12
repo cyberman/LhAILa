@@ -15,6 +15,12 @@
 struct LHAArchive;
 struct LHAEntry;
 
+struct LHAExtractOptions
+{
+    ULONG leo_StructSize;
+    ULONG leo_Flags;
+};
+
 struct LHAEntryInfo
 {
     ULONG  lei_StructSize;
@@ -80,12 +86,6 @@ LONG LHAGetEntryInfo(struct LHAEntry *entry, struct LHAEntryInfo *outInfo);
 
 LONG LHATestArchive(struct LHAArchive *archive, struct LHATestResult *outResult);
 LONG LHATestEntry(struct LHAEntry *entry, struct LHATestResult *outResult);
-
-struct LHAExtractOptions
-{
-    ULONG leo_StructSize;
-    ULONG leo_Flags;
-};
 
 #define LHAEXTRACTF_OVERWRITE   (1UL << 0)
 #define LHAEXTRACTF_SKIP_EXIST  (1UL << 1)
