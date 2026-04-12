@@ -8,4 +8,3 @@ LONG lha_extract_archive_to_dest(
     struct LHAArchive *arc,
     STRPTR destDir,
     struct LHAExtractOptions *opts);
-    
