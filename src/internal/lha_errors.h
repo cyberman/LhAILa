@@ -26,6 +26,7 @@
 #define LHAERR_ENTRY_NOT_FOUND     20L
 #define LHAERR_END_OF_ARCHIVE      21L
 #define LHAERR_INTERNAL            22L
+#define LHAERR_KNOWN_OUTSIDE       23L
 
 /*
  * Small helpers.

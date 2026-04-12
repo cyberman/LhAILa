@@ -6,6 +6,21 @@
 #include "../internal/lha_io.h"
 
 #define LHA_LV1_METHOD_LEN 5UL
+#define LHA_LV1_BASE_FIXED_SIZE 25UL
+
+static BOOL lha_method_tag_shape_valid_lv1(const UBYTE tag[LHA_LV1_METHOD_LEN])
+{
+    if (tag == NULL)
+        return FALSE;
+
+    if ((tag[0] == '-') && (tag[1] == 'l') && (tag[2] == 'h') && (tag[4] == '-'))
+        return TRUE;
+
+    if ((tag[0] == '-') && (tag[1] == 'l') && (tag[2] == 'z') && (tag[4] == '-'))
+        return TRUE;
+
+    return FALSE;
+}
 
 static UWORD lha_method_from_tag_lv1(const UBYTE tag[LHA_LV1_METHOD_LEN])
 {
@@ -62,6 +77,7 @@ static LONG lha_fill_level1_timestamp(struct LHAParsedEntry *outEntry, ULONG raw
     /*
      * 0.1 skeleton:
      * keep Amiga days/mins/ticks conversion deferred.
+     * TODO(0.2): convert archive timestamp to Amiga days/mins/ticks.
      */
     outEntry->lpe_TimestampDays = 0UL;
     outEntry->lpe_TimestampMins = 0UL;
@@ -185,6 +201,9 @@ LONG lha_parse_level1(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     if (header_size == 0U)
         return LHAERR_END_OF_ARCHIVE;
 
+    if ((ULONG)header_size < LHA_LV1_BASE_FIXED_SIZE)
+        return LHAERR_BAD_ARCHIVE;
+
     rc = lha_read_exact(arc, &header_cksum, 1UL);
     if (rc != LHAERR_OK)
         return rc;
@@ -194,6 +213,9 @@ LONG lha_parse_level1(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     rc = lha_read_exact(arc, method_tag, LHA_LV1_METHOD_LEN);
     if (rc != LHAERR_OK)
         return rc;
+
+    if (!lha_method_tag_shape_valid_lv1(method_tag))
+        return LHAERR_BAD_ARCHIVE;
 
     outEntry->lpe_MethodID = lha_method_from_tag_lv1(method_tag);
     if (outEntry->lpe_MethodID != LHA_METH_UNKNOWN)
@@ -282,6 +304,11 @@ LONG lha_parse_level1(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
         return LHAERR_BAD_ARCHIVE;
 
     base_header_end = entry_start + 1UL + (ULONG)header_size;
+    if (base_header_end <= entry_start)
+        return LHAERR_BAD_ARCHIVE;
+
+    if (base_header_end > arc->lhaa_FileSize)
+        return LHAERR_BAD_ARCHIVE;
 
     rc = lha_tell(arc, &current_pos);
     if (rc != LHAERR_OK)
@@ -316,6 +343,12 @@ LONG lha_parse_level1(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
         if (rc != LHAERR_OK)
             return rc;
     }
+
+    if (outEntry->lpe_DataOffset > arc->lhaa_FileSize)
+        return LHAERR_BAD_ARCHIVE;
+
+    if (outEntry->lpe_PackedSize > (arc->lhaa_FileSize - outEntry->lpe_DataOffset))
+        return LHAERR_BAD_ARCHIVE;
 
     return LHAERR_OK;
 }

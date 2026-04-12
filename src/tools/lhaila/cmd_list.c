@@ -1,4 +1,4 @@
-#include "../../include/libraries/lhaarchive.h"
+#include <libraries/lhaarchive.h>
 
 VOID lhaila_print_error(LONG rc);
 VOID lhaila_print_entry_info(struct LHAEntryInfo *info);

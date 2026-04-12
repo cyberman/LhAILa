@@ -1,5 +1,7 @@
-#include <dos/dos.h>
+#include <exec/types.h>
 #include <exec/memory.h>
+
+#include <proto/dos.h>
 
 #include "../internal/lha_types.h"
 #include "../internal/lha_errors.h"
@@ -146,7 +148,7 @@ LONG lha_ensure_parent_dirs(STRPTR fullPath)
             if (fullPath[0] != '\0')
             {
                 lock = CreateDir(fullPath);
-                if (lock != ZERO)
+                if (lock != (BPTR)0)
                     UnLock(lock);
             }
 
@@ -165,7 +167,7 @@ LONG lha_ensure_directory_path(STRPTR dirPath)
         return LHAERR_INVALID_ARGUMENT;
 
     lock = CreateDir(dirPath);
-    if (lock != ZERO)
+    if (lock != (BPTR)0)
     {
         UnLock(lock);
         return LHAERR_OK;

@@ -1,4 +1,6 @@
-#include <dos/dos.h>
+#include <exec/types.h>
+
+#include <proto/dos.h>
 
 #include "../internal/lha_types.h"
 #include "../internal/lha_errors.h"
@@ -11,7 +13,7 @@ LONG lha_seek_abs(struct LHAArchive *arc, ULONG offset)
     if (arc == NULL)
         return LHAERR_INVALID_ARGUMENT;
 
-    if (arc->lhaa_File == ZERO)
+    if (arc->lhaa_File == (BPTR)0)
         return LHAERR_INVALID_ARGUMENT;
 
     seek_rc = Seek(arc->lhaa_File, (LONG)offset, OFFSET_BEGINNING);
@@ -36,7 +38,7 @@ LONG lha_read_exact(struct LHAArchive *arc, APTR buf, ULONG size)
     if ((arc == NULL) || (buf == NULL))
         return LHAERR_INVALID_ARGUMENT;
 
-    if (arc->lhaa_File == ZERO)
+    if (arc->lhaa_File == (BPTR)0)
         return LHAERR_INVALID_ARGUMENT;
 
     if (size == 0UL)
@@ -72,7 +74,7 @@ LONG lha_skip_exact(struct LHAArchive *arc, ULONG size)
     if (arc == NULL)
         return LHAERR_INVALID_ARGUMENT;
 
-    if (arc->lhaa_File == ZERO)
+    if (arc->lhaa_File == (BPTR)0)
         return LHAERR_INVALID_ARGUMENT;
 
     if (size == 0UL)

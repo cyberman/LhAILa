@@ -6,6 +6,21 @@
 #include "../internal/lha_io.h"
 
 #define LHA_LV0_METHOD_LEN 5UL
+#define LHA_LV0_BASE_FIXED_SIZE 22UL
+
+static BOOL lha_method_tag_shape_valid(const UBYTE tag[LHA_LV0_METHOD_LEN])
+{
+    if (tag == NULL)
+        return FALSE;
+
+    if ((tag[0] == '-') && (tag[1] == 'l') && (tag[2] == 'h') && (tag[4] == '-'))
+        return TRUE;
+
+    if ((tag[0] == '-') && (tag[1] == 'l') && (tag[2] == 'z') && (tag[4] == '-'))
+        return TRUE;
+
+    return FALSE;
+}
 
 static UWORD lha_method_from_tag(const UBYTE tag[LHA_LV0_METHOD_LEN])
 {
@@ -62,8 +77,7 @@ static LONG lha_fill_level0_timestamp(struct LHAParsedEntry *outEntry, ULONG raw
      * - store zeroed Amiga time fields
      * - parser remains structurally correct
      *
-     * Later:
-     * - convert the archive timestamp properly into days/mins/ticks.
+     * TODO(0.2): convert archive timestamp to Amiga days/mins/ticks.
      */
     (void)raw_timestamp;
 
@@ -88,6 +102,10 @@ static LONG lha_parse_level0_name(
     if ((arc == NULL) || (outEntry == NULL))
         return LHAERR_INVALID_ARGUMENT;
 
+    /*
+     * 0.1 conservative policy:
+     * reject empty entry names.
+     */
     if (name_len == 0U)
         return LHAERR_BAD_ARCHIVE;
 
@@ -120,6 +138,9 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     ULONG raw_timestamp;
     ULONG computed_min_size;
     ULONG header_end_pos;
+    ULONG consumed_after_size;
+    ULONG remaining_after_name_len;
+    ULONG needed_after_name_len;
     LONG rc;
 
     if ((arc == NULL) || (outEntry == NULL))
@@ -141,6 +162,9 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     if (header_size == 0U)
         return LHAERR_END_OF_ARCHIVE;
 
+    if ((ULONG)header_size < LHA_LV0_BASE_FIXED_SIZE)
+        return LHAERR_BAD_ARCHIVE;
+
     rc = lha_read_exact(arc, &header_cksum, 1UL);
     if (rc != LHAERR_OK)
         return rc;
@@ -150,6 +174,9 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     rc = lha_read_exact(arc, method_tag, LHA_LV0_METHOD_LEN);
     if (rc != LHAERR_OK)
         return rc;
+
+    if (!lha_method_tag_shape_valid(method_tag))
+        return LHAERR_BAD_ARCHIVE;
 
     outEntry->lpe_MethodID = lha_method_from_tag(method_tag);
     if (outEntry->lpe_MethodID != LHA_METH_UNKNOWN)
@@ -193,6 +220,19 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     rc = lha_read_exact(arc, &name_len, 1UL);
     if (rc != LHAERR_OK)
         return rc;
+
+    consumed_after_size = 1UL + 5UL + 4UL + 4UL + 4UL + 1UL + 1UL;
+    /* checksum + method + packed + unpacked + timestamp + attr + name_len */
+
+    if (consumed_after_size > (ULONG)header_size)
+        return LHAERR_BAD_ARCHIVE;
+
+    remaining_after_name_len = (ULONG)header_size - consumed_after_size;
+    needed_after_name_len = (ULONG)name_len + 2UL + 1UL;
+    /* name + crc + level */
+
+    if (needed_after_name_len > remaining_after_name_len)
+        return LHAERR_BAD_ARCHIVE;
 
     rc = lha_parse_level0_name(arc, name_len, outEntry);
     if (rc != LHAERR_OK)
@@ -240,13 +280,26 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
      *
      * => 23 + N bytes after header_size
      */
-    computed_min_size = 22UL + (ULONG)name_len;
+    computed_min_size = LHA_LV0_BASE_FIXED_SIZE + (ULONG)name_len;
     if ((ULONG)header_size < computed_min_size)
         return LHAERR_BAD_ARCHIVE;
 
     header_end_pos = entry_start + 1UL + (ULONG)header_size;
+
+    if (header_end_pos <= entry_start)
+        return LHAERR_BAD_ARCHIVE;
+
+    if (header_end_pos > arc->lhaa_FileSize)
+        return LHAERR_BAD_ARCHIVE;
+
     outEntry->lpe_HeaderOffset = entry_start;
     outEntry->lpe_DataOffset = header_end_pos;
+
+    if (outEntry->lpe_DataOffset > arc->lhaa_FileSize)
+        return LHAERR_BAD_ARCHIVE;
+
+    if (outEntry->lpe_PackedSize > (arc->lhaa_FileSize - outEntry->lpe_DataOffset))
+        return LHAERR_BAD_ARCHIVE;
 
     /*
      * Skip any remaining header bytes not consumed by the minimal parser.

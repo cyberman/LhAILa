@@ -3,6 +3,8 @@
 #include "../internal/lha_parse.h"
 #include "../internal/lha_orchestration.h"
 #include "../internal/lha_extract.h"
+#include "../internal/lha_sink_state.h"
+#include "../internal/lha_archive_core.h"
 
 LONG lha_sanitize_entry_path(
     struct LHAArchive *arc,
@@ -20,10 +22,10 @@ LONG lha_ensure_directory_path(STRPTR dirPath);
 
 struct LHAFileSinkState
 {
+    struct LHASinkStateCommon lhfs_Common;
+
     BPTR   lhfs_File;
     STRPTR lhfs_FullPath;
-    ULONG  lhfs_BytesWritten;
-    UWORD  lhfs_RunningCRC;
     BOOL   lhfs_Completed;
 };
 
@@ -35,10 +37,11 @@ static LONG lha_build_file_sink(
     if ((outSink == NULL) || (outState == NULL) || (fullPath == NULL))
         return LHAERR_INVALID_ARGUMENT;
 
-    outState->lhfs_File = ZERO;
+    outState->lhfs_Common.lhsc_BytesSeen = 0UL;
+    outState->lhfs_Common.lhsc_RunningCRC = 0U;
+
+    outState->lhfs_File = (BPTR)0;
     outState->lhfs_FullPath = fullPath;
-    outState->lhfs_BytesWritten = 0UL;
-    outState->lhfs_RunningCRC = 0U;
     outState->lhfs_Completed = FALSE;
 
     outSink->lhs_UserData = (APTR)outState;
@@ -92,9 +95,17 @@ LONG lha_extract_entry_to_dest(
     if (rc != LHAERR_OK)
         return rc;
 
-    return lha_process_entry(arc, entry, &sink);
+    rc = lha_process_entry(arc, entry, &sink);
+    if (rc == LHAERR_KNOWN_OUTSIDE)
+        return rc;
+
+    return rc;
 }
 
+/*
+ * Known related but outside-profile entries are surfaced explicitly here.
+ * 0.1 still treats them as extraction failure, but not as silent corruption.
+ */
 LONG lha_extract_archive_to_dest(
     struct LHAArchive *arc,
     STRPTR destDir,
@@ -115,6 +126,9 @@ LONG lha_extract_archive_to_dest(
         rc = lha_core_next_entry(arc, &entry);
         if (rc == LHAERR_END_OF_ARCHIVE)
             return LHAERR_OK;
+
+        if (rc == LHAERR_KNOWN_OUTSIDE)
+            return rc;
 
         if (rc != LHAERR_OK)
             return rc;

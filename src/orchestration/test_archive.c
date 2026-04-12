@@ -3,6 +3,9 @@
 #include "../internal/lha_parse.h"
 #include "../internal/lha_sinks.h"
 #include "../internal/lha_orchestration.h"
+#include "../internal/lha_sink_state.h"
+#include "../internal/lha_archive_core.h"
+#include "../../include/libraries/lhaarchive.h"
 
 /*
  * Minimal private test sink state for archive/entry test flows.
@@ -10,7 +13,7 @@
  */
 struct LHATestSinkState
 {
-    ULONG lhts_BytesSeen;
+    struct LHASinkStateCommon lhts_Common;
 };
 
 static VOID lha_test_result_init(struct LHATestResult *outResult)
@@ -33,7 +36,8 @@ static LONG lha_build_test_sink(
     if ((outSink == NULL) || (outState == NULL))
         return LHAERR_INVALID_ARGUMENT;
 
-    outState->lhts_BytesSeen = 0UL;
+    outState->lhts_Common.lhsc_BytesSeen = 0UL;
+    outState->lhts_Common.lhsc_RunningCRC = 0U;
 
     outSink->lhs_UserData = (APTR)outState;
     outSink->lhs_Begin = lha_test_sink_begin;
@@ -71,6 +75,14 @@ LONG lha_test_single_entry(
     }
 
     rc = lha_process_entry(arc, entry, &sink);
+    if (rc == LHAERR_KNOWN_OUTSIDE)
+    {
+        outResult->ltr_EntriesFailed = 1UL;
+        outResult->ltr_FirstError = rc;
+        outResult->ltr_FirstErrorPath = entry->lpe_Path;
+        return rc;
+    }
+
     if (rc != LHAERR_OK)
     {
         outResult->ltr_EntriesFailed = 1UL;
@@ -117,6 +129,18 @@ LONG lha_test_whole_archive(struct LHAArchive *arc, struct LHATestResult *outRes
         rc = lha_core_next_entry(arc, &entry);
         if (rc == LHAERR_END_OF_ARCHIVE)
             break;
+
+        /*
+         * Known related but outside-profile entries are not treated as structurally
+         * corrupt here, even though 0.1 still returns failure for the archive test.
+         */
+        if (rc == LHAERR_KNOWN_OUTSIDE)
+        {
+            outResult->ltr_EntriesFailed++;
+            outResult->ltr_FirstError = rc;
+            outResult->ltr_FirstErrorPath = NULL;
+            return rc;
+        }
 
         if (rc != LHAERR_OK)
         {

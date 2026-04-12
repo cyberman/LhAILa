@@ -1,5 +1,7 @@
+#include <exec/types.h>
 #include <exec/memory.h>
-#include <dos/dos.h>
+
+#include <proto/dos.h>
 
 #include "../internal/lha_types.h"
 #include "../internal/lha_errors.h"
@@ -30,7 +32,7 @@ LONG lha_file_sink_begin(struct LHASink *sink, struct LHAParsedEntry *entry)
         return LHAERR_INVALID_ARGUMENT;
 
     state->lhfs_File = Open(state->lhfs_FullPath, MODE_NEWFILE);
-    if (state->lhfs_File == ZERO)
+    if (state->lhfs_File == (BPTR)0)
         return LHAERR_WRITE_FAILED;
 
     state->lhfs_Common.lhsc_BytesSeen = 0UL;
@@ -53,7 +55,7 @@ LONG lha_file_sink_write(struct LHASink *sink, CONST_APTR data, ULONG size)
     if (state == NULL)
         return LHAERR_INVALID_ARGUMENT;
 
-    if (state->lhfs_File == ZERO)
+    if (state->lhfs_File == (BPTR)0)
         return LHAERR_INTERNAL;
 
     if (size == 0UL)
@@ -83,10 +85,10 @@ LONG lha_file_sink_end(struct LHASink *sink)
     if (state == NULL)
         return LHAERR_INVALID_ARGUMENT;
 
-    if (state->lhfs_File != ZERO)
+    if (state->lhfs_File != (BPTR)0)
     {
         Close(state->lhfs_File);
-        state->lhfs_File = ZERO;
+        state->lhfs_File = (BPTR)0;
     }
 
     state->lhfs_Completed = TRUE;
@@ -104,10 +106,10 @@ VOID lha_file_sink_abort(struct LHASink *sink)
     if (state == NULL)
         return;
 
-    if (state->lhfs_File != ZERO)
+    if (state->lhfs_File != (BPTR)0)
     {
         Close(state->lhfs_File);
-        state->lhfs_File = ZERO;
+        state->lhfs_File = (BPTR)0;
     }
 
     if ((state->lhfs_FullPath != NULL) && !state->lhfs_Completed)

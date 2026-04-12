@@ -1,5 +1,8 @@
+#include <exec/types.h>
 #include <exec/memory.h>
-#include <dos/dos.h>
+
+#include <proto/exec.h>
+#include <proto/dos.h>
 
 #include "../internal/lha_types.h"
 #include "../internal/lha_errors.h"
@@ -13,11 +16,13 @@
 #define LHA_DEFAULT_PATH_SCRATCH_SIZE    1024UL
 #define LHA_DEFAULT_ERROR_PATH_SIZE       256UL
 
+VOID lha_core_close_archive(struct LHAArchive *arc);
+
 static VOID lha_core_clear_archive(struct LHAArchive *arc)
 {
     if (arc != NULL)
     {
-        arc->lhaa_File = ZERO;
+        arc->lhaa_File = (BPTR)0;
         arc->lhaa_Path = NULL;
 
         arc->lhaa_FileSize = 0UL;
@@ -140,7 +145,7 @@ LONG lha_core_open_archive(STRPTR path, struct LHAArchive **outArc)
     }
 
     arc->lhaa_File = Open(path, MODE_OLDFILE);
-    if (arc->lhaa_File == ZERO)
+    if (arc->lhaa_File == (BPTR)0)
     {
         arc->lhaa_LastDOSIoErr = IoErr();
         rc = LHAERR_OPEN_FAILED;
@@ -201,10 +206,10 @@ VOID lha_core_close_archive(struct LHAArchive *arc)
     if (arc == NULL)
         return;
 
-    if (arc->lhaa_File != ZERO)
+    if (arc->lhaa_File != (BPTR)0)
     {
         Close(arc->lhaa_File);
-        arc->lhaa_File = ZERO;
+        arc->lhaa_File = (BPTR)0;
     }
 
     if (arc->lhaa_IOBuffer != NULL)
@@ -249,7 +254,7 @@ LONG lha_core_rewind_archive(struct LHAArchive *arc)
     if (arc == NULL)
         return LHAERR_INVALID_ARGUMENT;
 
-    if (arc->lhaa_File == ZERO)
+    if (arc->lhaa_File == (BPTR)0)
         return LHAERR_INVALID_ARGUMENT;
 
     if (Seek(arc->lhaa_File, 0L, OFFSET_BEGINNING) == -1L)

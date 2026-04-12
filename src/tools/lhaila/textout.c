@@ -1,6 +1,7 @@
-#include <dos/dos.h>
+#include <exec/types.h>
+#include <proto/dos.h>
 
-#include "../../internal/lha_types.h"
+#include <libraries/lhaarchive.h>
 #include "../../internal/lha_errors.h"
 
 static STRPTR lhaila_error_to_string(LONG rc)

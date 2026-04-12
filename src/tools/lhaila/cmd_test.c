@@ -1,5 +1,6 @@
 #include "../../internal/lha_types.h"
 #include "../../internal/lha_errors.h"
+#include <libraries/lhaarchive.h>
 
 LONG LHAOpenArchive(STRPTR path, struct LHAArchive **outArchive);
 VOID LHACloseArchive(struct LHAArchive *archive);
