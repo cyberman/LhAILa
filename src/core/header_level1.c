@@ -179,6 +179,7 @@ LONG lha_parse_level1(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     UBYTE u32buf[4];
     UBYTE u16buf[2];
     UBYTE name_len;
+    UBYTE level;
     UBYTE os_byte;
     ULONG entry_start;
     ULONG raw_timestamp;
@@ -255,6 +256,13 @@ LONG lha_parse_level1(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
         outEntry->lpe_Type = LHA_ENTRY_TYPE_FILE;
     }
 
+    rc = lha_read_exact(arc, &level, 1UL);
+    if (rc != LHAERR_OK)
+        return rc;
+
+    if ((ULONG)level != LHA_HEADER_LEVEL_1)
+        return LHAERR_BAD_ARCHIVE;
+
     rc = lha_read_exact(arc, &name_len, 1UL);
     if (rc != LHAERR_OK)
         return rc;
@@ -303,7 +311,7 @@ LONG lha_parse_level1(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     if ((ULONG)header_size < (25UL + (ULONG)name_len))
         return LHAERR_BAD_ARCHIVE;
 
-    base_header_end = entry_start + 1UL + (ULONG)header_size;
+    base_header_end = entry_start + 2UL + (ULONG)header_size;
     if (base_header_end <= entry_start)
         return LHAERR_BAD_ARCHIVE;
 

@@ -50,6 +50,9 @@ static STRPTR lhaila_error_to_string(LONG rc)
         case LHAERR_INTERNAL:
             return "internal error";
 
+        case LHAERR_KNOWN_OUTSIDE:
+            return "known outside current profile";
+
         default:
             return "unknown error";
     }

@@ -1,4 +1,6 @@
 #include <libraries/lhaarchive.h>
+#include "../../internal/lha_io.h"
+#include "../../internal/lha_types.h"
 
 VOID lhaila_print_error(LONG rc);
 VOID lhaila_print_entry_info(struct LHAEntryInfo *info);
@@ -56,6 +58,20 @@ LONG lhaila_cmd_list(STRPTR archivePath)
         }
 
         lhaila_print_entry_info(&info);
+        {
+            struct LHAParsedEntry *parsed;
+            ULONG next_offset;
+
+            parsed = (struct LHAParsedEntry *)entry;
+            next_offset = parsed->lpe_DataOffset + parsed->lpe_PackedSize;
+
+            rc = lha_seek_abs(arc, next_offset);
+            if (rc != LHAERR_OK)
+            {
+                lhaila_print_error(rc);
+                break;
+            }
+        }
     }
 
     LHACloseArchive(arc);

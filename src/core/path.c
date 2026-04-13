@@ -106,10 +106,10 @@ LONG lha_sanitize_entry_path(
 
     total_len = dest_len + 1UL + entry_len + 1UL;
 
-    if ((arc->lhaa_PathScratch == NULL) || (arc->lhaa_PathScratchSize < total_len))
+    if ((arc->lhaa_ErrorPathScratch == NULL) || (arc->lhaa_ErrorPathScratchSize < total_len))
         return LHAERR_NO_MEMORY;
 
-    dst = arc->lhaa_PathScratch;
+    dst = arc->lhaa_ErrorPathScratch;
 
     for (i = 0UL; i < dest_len; i++)
         dst[i] = destDir[i];

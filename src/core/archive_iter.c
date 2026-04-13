@@ -1,3 +1,4 @@
+#include <proto/dos.h>
 #include "../internal/lha_types.h"
 #include "../internal/lha_errors.h"
 #include "../internal/lha_io.h"
@@ -60,8 +61,26 @@ static LONG lha_read_probe(
         return LHAERR_END_OF_ARCHIVE;
 
     available = arc->lhaa_FileSize - pos_before;
+
+    if (available == 0UL)
+        return LHAERR_END_OF_ARCHIVE;
+
     if (available < want_size)
+    {
+        if (lha_read_exact(arc, probe->bytes, 1UL) != LHAERR_OK)
+            return LHAERR_READ_FAILED;
+
+        probe->size = 1UL;
+
+        rc = lha_seek_abs(arc, pos_before);
+        if (rc != LHAERR_OK)
+            return rc;
+
+        if (probe->bytes[0] == 0U)
+            return LHAERR_END_OF_ARCHIVE;
+
         return LHAERR_BAD_ARCHIVE;
+    }
 
     rc = lha_read_exact(arc, probe->bytes, want_size);
     if (rc != LHAERR_OK)
@@ -90,6 +109,21 @@ static BOOL lha_probe_method_tag_plausible(const UBYTE *tag)
     return FALSE;
 }
 
+static BOOL lha_probe_method_tag_is_lhd(const UBYTE *tag)
+{
+    if (tag == NULL)
+        return FALSE;
+
+    if ((tag[0] == '-') &&
+        (tag[1] == 'l') &&
+        (tag[2] == 'h') &&
+        (tag[3] == 'd') &&
+        (tag[4] == '-'))
+        return TRUE;
+
+    return FALSE;
+}
+
 /*
  * Minimal 0.1 header level detection scaffold.
  * Detection only.
@@ -99,7 +133,6 @@ static LONG lha_detect_header_level(struct LHAArchive *arc, ULONG *outLevel)
 {
     struct LHAHeaderProbe probe;
     UBYTE header_size;
-    UBYTE level_byte;
     LONG rc;
 
     if ((arc == NULL) || (outLevel == NULL))
@@ -120,38 +153,33 @@ static LONG lha_detect_header_level(struct LHAArchive *arc, ULONG *outLevel)
     if (!lha_probe_method_tag_plausible(&probe.bytes[2]))
         return LHAERR_BAD_ARCHIVE;
 
+    if (lha_probe_method_tag_is_lhd(&probe.bytes[2]))
+        return LHAERR_KNOWN_OUTSIDE;
+
     /*
-     * For the current 0.1 parser stage we read the candidate level byte
-     * from the classic base-header location used by our minimal level-0/1
-     * skeletons.
+     * 0.1 fallback detection:
+     * after basic plausibility checks we try the level-0 parser first.
      *
-     * This is still only detection, not full validation.
+     * This is intentional until full variable-layout detection is in place.
      */
-    level_byte = probe.bytes[23];
-
-    switch ((ULONG)level_byte)
+    if (probe.bytes[20] == 0U)
     {
-        case 0UL:
-            *outLevel = 0UL;
-            return LHAERR_OK;
-
-        case 1UL:
-            if ((ULONG)header_size < LHA_PROBE_MIN_LEVEL1_HEADER_SIZE)
-                return LHAERR_BAD_ARCHIVE;
-
-            *outLevel = 1UL;
-            return LHAERR_OK;
-
-        case 2UL:
-            if ((ULONG)header_size < LHA_PROBE_MIN_LEVEL1_HEADER_SIZE)
-                return LHAERR_BAD_ARCHIVE;
-
-            *outLevel = 2UL;
-            return LHAERR_OK;
-
-        default:
-            return LHAERR_BAD_ARCHIVE;
+        *outLevel = 0UL;
+        return LHAERR_OK;
     }
+
+    if (probe.bytes[20] == 1U)
+    {
+        *outLevel = 1UL;
+        return LHAERR_OK;
+    }
+
+    if (probe.bytes[20] == 2U)
+    {
+        return LHAERR_KNOWN_OUTSIDE;
+    }
+
+    return LHAERR_BAD_ARCHIVE;
 }
 
 LONG lha_core_next_entry(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
