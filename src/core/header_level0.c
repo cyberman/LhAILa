@@ -1,5 +1,4 @@
 #include <exec/types.h>
-#include <proto/dos.h>
 
 #include "../internal/lha_types.h"
 #include "../internal/lha_errors.h"
@@ -155,12 +154,6 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     if (rc != LHAERR_OK)
         return rc;
 
-    {
-        LONG args[1];
-        args[0] = (LONG)header_size;
-        VPrintf("lv0: hsize=%ld\n", args);
-    }
-
     /*
      * End marker candidate: zero header size.
      * Caller currently treats this as archive end via detection path,
@@ -181,16 +174,6 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     rc = lha_read_exact(arc, method_tag, LHA_LV0_METHOD_LEN);
     if (rc != LHAERR_OK)
         return rc;
-
-    {
-        LONG args[5];
-        args[0] = (LONG)method_tag[0];
-        args[1] = (LONG)method_tag[1];
-        args[2] = (LONG)method_tag[2];
-        args[3] = (LONG)method_tag[3];
-        args[4] = (LONG)method_tag[4];
-        VPrintf("lv0: method=%lc%lc%lc%lc%lc\n", args);
-    }
 
     if (!lha_method_tag_shape_valid(method_tag))
         return LHAERR_BAD_ARCHIVE;
@@ -238,12 +221,6 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
     if (rc != LHAERR_OK)
         return rc;
 
-    {
-        LONG args[1];
-        args[0] = (LONG)name_len;
-        VPrintf("lv0: namelen=%ld\n", args);
-    }
-
     consumed_after_size = 1UL + 5UL + 4UL + 4UL + 4UL + 1UL + 1UL;
     /* checksum + method + packed + unpacked + timestamp + attr + name_len */
 
@@ -278,12 +255,6 @@ LONG lha_parse_level0(struct LHAArchive *arc, struct LHAParsedEntry *outEntry)
         rc = lha_read_exact(arc, &level, 1UL);
         if (rc != LHAERR_OK)
             return rc;
-
-        {
-            LONG args[1];
-            args[0] = (LONG)level;
-            VPrintf("lv0: level=%ld\n", args);
-        }
 
         if ((ULONG)level != LHA_HEADER_LEVEL_0)
             return LHAERR_BAD_ARCHIVE;
